@@ -7,12 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"arozos.com/TorrentA/mod/apt"
 	"arozos.com/TorrentA/mod/aroz"
+	"github.com/anacrolix/torrent"
 )
 
 var (
-	handler *aroz.ArozHandler
+	handler       *aroz.ArozHandler
+	torrentClient *torrent.Client
 )
 
 /*
@@ -50,11 +51,6 @@ func main() {
 		InitEmbSize:  []int{1150, 640},
 		SupportedExt: []string{".torrent"},
 	})
-
-	//Install aria2 if not exists
-	log.Println("*TorrentA* Checking if aria2 is installed...")
-	npm := apt.NewPackageManager(true)
-	npm.InstallIfNotExists("aria2", true)
 
 	//Register the standard web services urls
 	fs := http.FileServer(http.Dir("./web"))
