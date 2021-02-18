@@ -1,0 +1,29 @@
+/*
+	TorrentA 
+	authro: tobychui
+
+	
+*/
+
+
+//Define the launchInfo for the module
+var moduleLaunchInfo = {
+    Name: "TorrentA",
+	Group: "Download",
+	IconPath: "TorrentA/img/small_icon.png",
+	Version: "0.1",
+	StartDir: "TorrentA/index.html",
+	SupportFW: true,
+	LaunchFWDir: "TorrentA/index.html",
+	SupportEmb: true,
+	LaunchEmb: "TorrentA/embedded.html",
+	InitFWSize: [1150, 640],
+	InitEmbSize: [1150, 640],
+	SupportedExt: [".torrent"]
+}
+
+//Require aria2
+requirepkg("aria2",true)
+
+//Register the module
+registerModule(JSON.stringify(moduleLaunchInfo));
