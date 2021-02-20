@@ -30,6 +30,9 @@ func SetupCloseHandler() {
 		log.Println("\r- Shutting down TorrentA module.")
 		//Do other things like close database or opened files
 
+		//Shutdown alld torrent clients
+		shutdownAllTorrentClients()
+
 		os.Exit(0)
 	}()
 }

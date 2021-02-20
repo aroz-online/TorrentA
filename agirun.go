@@ -12,6 +12,10 @@ func getUsername(w http.ResponseWriter, r *http.Request) string {
 	return username
 }
 
+func resolveVirtalPath(w http.ResponseWriter, r *http.Request, vpath string) (string, error) {
+	return runAGIContent(w, r, `sendResp(decodeAbsoluteVirtualPath("`+vpath+`"));`)
+}
+
 func runAGIContent(w http.ResponseWriter, r *http.Request, script string) (string, error) {
 	//Get username and token from request
 	_, token := handler.GetUserInfoFromRequest(w, r)

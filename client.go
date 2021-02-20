@@ -1,8 +1,12 @@
 package main
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"sync"
+
+	"github.com/anacrolix/torrent"
 )
 
 /*
@@ -33,7 +37,33 @@ func initUserTorrentClientIfNotExists(w http.ResponseWriter, r *http.Request) {
 	} else {
 		//Already exists. OK
 	}
+
+	//send ok as ready
 	sendOK(w)
+}
+
+func getTorrentClientByUsername(username string) (*torrent.Client, error) {
+	val, ok := torrentClientLists.Load(username)
+	if !ok {
+		return nil, errors.New("No torrent client found for this user")
+	}
+
+	return val.(*torrent.Client), nil
+}
+
+func getTorrentClientByRequest(w http.ResponseWriter, r *http.Request) (*torrent.Client, error) {
+	username := getUsername(w, r)
+	return getTorrentClientByUsername(username)
+}
+
+func shutdownAllTorrentClients() {
+	log.Println("Shutting down TorrentA torrent clients")
+	torrentClientLists.Range(func(key, value interface{}) bool {
+		//Shutdown the handler
+		log.Println("Shutting down torrent client for " + key.(string))
+		value.(*torrent.Client).Close()
+		return true
+	})
 }
 
 func init() {
@@ -42,5 +72,4 @@ func init() {
 
 	//Each user request this endpoint once when enter the homepage
 	http.HandleFunc("/init", initUserTorrentClientIfNotExists)
-
 }

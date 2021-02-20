@@ -25,12 +25,16 @@
                 #2D1E2F dark purple
             */
 
+            .downloadTask{
+                cursor: pointer;
+            }
+
             .downloadTask:hover{
                 background-color: #e8e8e8;
             }
 
             .downloadTask.selected{
-
+                background-color: #e1eafa;
             }
         </style>
     </head>
@@ -53,61 +57,69 @@
                 Stop
             </a>
         </div>
-        <div class="ui basic segment">
-            <p>The table below only shows download tasks initiated by you. The host system bandwidth is shared among other users (if any).</p>
-            <table class="ui basic unstackable celled table">
-                <thead>
-                    <tr><th>Status</th>
-                    <th>Torrent Name</th>
-                    <th>Size</th>
-                    <th>Progress</th>
-                    <th>Job Added</th>
-                    <th>Done Time</th>
-                </tr></thead>
-                <tbody>
-                    <tr class="downloadTask">
-                        <td><i class="checkmark icon"></i></td>
-                        <td>test.torrent</td>
-                        <td>25Mb</td>
-                        <td>30%</td>
-                        <td>2021 Feb 17</td>
-                        <td></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- Add job confirmation -->
-            <div id="newjob" class="ui modal">
-                <i class="close icon"></i>
-                <div class="header">
-                  Add New Job
+        <div class="ui grid">
+            <div class="three wide column">
+                <div class="ui vertical left attached basic fluid buttons">
+                    <button class="ui button"><i class="file icon"></i> All Torrents</button>
+                    <button class="ui button"><i class="download icon"></i> Downloading</button>
+                    <button class="ui button"><i class="upload icon"></i> Seeding</button>
+                    <button class="ui button"><i class="checkmark icon"></i> Completed</button>
                 </div>
-                <div class="content">
-                  <div class="description">
-                    <p>Add Job by Torrent File</p>
-                    <div class="ui action fluid input">
-                        <input type="text" id="targetTorrentFile" placeholder="user:/Desktop/myfile.torrent">
-                        <button class="ui button" onclick="selectTorrentFile();"><i class="folder open icon"></i> Open</button>
-                    </div>
-                    <div class="ui divider"></div>
-                    <p>Or Add Job by Magnet Link</p>
-                    <div class="ui left icon fluid input">
-                        <input type="text" id="magnetLink" placeholder="magnet:?">
-                        <i style="transform: rotate(90deg);" class="magnet icon"></i>
-                    </div>
-                  </div>
+                <div class="ui container" style="padding: 12px;">
+                    Powered by <a href="https://github.com/aroz-online/TorrentA" target="_blank">TorrentA</a> and <a href="https://github.com/anacrolix/torrent" target="_blank">torrent</a>
                 </div>
-                <div class="actions">
                 
-                  <div class="ui positive left labeled icon button">
-                    <i class="checkmark icon"></i>
-                    OK
-                  </div>
-                  <div class="ui black deny button">
-                    Cancel
-                  </div>
+            </div>
+            <div class="thirteen wide column">
+                <div class="ui basic segment">
+                    <p>The table below only shows download tasks initiated by you. The host system bandwidth is shared among other users (if any).</p>
+                    <table class="ui basic unstackable celled table">
+                        <thead>
+                            <tr><th>Status</th>
+                            <th>Torrent Name</th>
+                            <th>Size</th>
+                            <th>Progress</th>
+                            <th>Files</th>
+                        </tr></thead>
+                        <tbody id="ongoingTaskList">
+                            
+                        </tbody>
+                    </table>
                 </div>
-              </div>
+            </div>
+        </div>
+
+        <!-- Add job confirmation -->
+        <div id="newjob" class="ui modal">
+            <i class="close icon"></i>
+            <div class="header">
+                Add New Job
+            </div>
+            <div class="content">
+                <div class="description">
+                <p>Add Job by Torrent File</p>
+                <div class="ui action fluid input">
+                    <input type="text" id="targetTorrentFile" placeholder="user:/Desktop/myfile.torrent">
+                    <button class="ui button" onclick="selectTorrentFile();"><i class="folder open icon"></i> Open</button>
+                </div>
+                <div class="ui divider"></div>
+                <p>Or Add Job by Magnet Link</p>
+                <div class="ui left icon fluid input">
+                    <input type="text" id="magnetLink" placeholder="magnet:?">
+                    <i style="transform: rotate(90deg);" class="magnet icon"></i>
+                </div>
+                </div>
+            </div>
+            <div class="actions">
+                
+                <div class="ui positive left labeled icon button" onclick="confirmAddJob();">
+                <i class="checkmark icon"></i>
+                OK
+                </div>
+                <div class="ui black deny button">
+                Cancel
+                </div>
+            </div>
         </div>
         <script>
             var flist = ao_module_loadInputFiles();
@@ -115,6 +127,25 @@
                 
             }else{
                
+            }
+
+            $(document).ready(function(){
+                //Stsart the torrent downloader client for this user
+                $.get("./init", function(data){
+                    
+                });
+
+                //Initialize the list
+                listAllTorrents();
+                setInterval(function(){
+                    listAllTorrents();
+                }, 5000);
+            });
+
+            function bindTableEvent(){
+                $(".downloadTask").off("click").on("click", function(e){
+                    $(this).addClass("selected");
+                });
             }
 
             function newJob(){
@@ -127,7 +158,67 @@
                 });
             }
 
-           
+           function confirmAddJob(){
+               var torrentFile = $("#targetTorrentFile").val();
+               var magnet = $("#magnetLink").val();
+
+               if (magnet != ""){
+                   //use magnet
+
+               }else{
+                   //Use torrent file
+                    $.ajax({
+                        url: "torrent/addTorrent",
+                        data: {file: torrentFile},
+                        success: function(data){
+                            listAllTorrents();
+                        }
+                    })
+               }
+           }
+
+            function bytesToSize(bytes) {
+                var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                if (bytes == 0) return '0 Byte';
+                var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+                return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+            }
+
+           function listAllTorrents(){
+               $.ajax({
+                   url: "torrent/list",
+                   success: function(data){
+                        $("#ongoingTaskList").html("");
+                        if (data.error !== undefined){
+                            //Maybe backend restarted. Restart connection
+                            $.get("./init", function(data){
+                                
+                            });
+                            return
+                        }
+                        console.log(data);
+                        data.forEach(download => {
+                            //Estimate the whole download size
+                            var totalSize = 0;
+                            download.Info.Files.forEach(file => {
+                                totalSize += file.Length;
+                            })
+
+
+                            $("#ongoingTaskList").append(`<tr class="downloadTask" hash="${download.Hash}">
+                                <td><i class="clock icon"></i></td>
+                                <td>${download.Name}</td>
+                                <td>${bytesToSize(totalSize)}</td>
+                                <td>${""}</td>
+                                <td>${download.Info.Files.length}</td>
+                            </tr>`);
+                        });
+
+                        //Bind events on the task
+                        bindTableEvent();
+                   }
+               })
+           }
 
             function torrentFileSelected(filedata){
                 for (var i=0; i < filedata.length; i++){
