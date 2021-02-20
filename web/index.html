@@ -36,6 +36,10 @@
             .downloadTask.selected{
                 background-color: #e1eafa;
             }
+
+            .downloadTask.completed{
+                background-color: #bcffb0;
+            }
         </style>
     </head>
     <body>
@@ -44,17 +48,14 @@
                 <i class="add icon"></i>
                 New Job
             </a>
-            <a class="item" style="color: #E3170A;">
-                <i class="trash icon"></i>
-                Delete
-            </a>
+           
             <a class="item" style="color: #70ABAF;">
                 <i class="play icon"></i>
-                Start
+                Start All
             </a>
             <a class="item">
                 <i class="square icon"></i>
-                Stop
+                Stop All
             </a>
         </div>
         <div class="ui grid">
@@ -80,6 +81,7 @@
                             <th>Size</th>
                             <th>Progress</th>
                             <th>Files</th>
+                            <th>Actions</th>
                         </tr></thead>
                         <tbody id="ongoingTaskList">
                             
@@ -143,9 +145,11 @@
             });
 
             function bindTableEvent(){
+                /*
                 $(".downloadTask").off("click").on("click", function(e){
                     $(this).addClass("selected");
                 });
+                */
             }
 
             function newJob(){
@@ -171,11 +175,60 @@
                         url: "torrent/addTorrent",
                         data: {file: torrentFile},
                         success: function(data){
-                            listAllTorrents();
+                            
                         }
                     })
                }
            }
+
+         
+
+            function startThis(btn){
+                var hash = $(btn).attr("hash");
+                startSelectedTorrents(hash);
+            }
+
+            function stopThis(btn){
+                var hash = $(btn).attr("hash");
+                stopSelectedTorrents(hash);
+            }
+
+            function dropThis(btn){
+                var hash = $(btn).attr("hash");
+                dropSelectedTorrent(hash);
+            }
+
+            function startSelectedTorrents(hash){
+                $.ajax({
+                    url: "torrent/startTorrent",
+                    data: {hash: hash},
+                    success: function(data){
+                        console.log(data);
+                    }
+                });
+            }
+
+            function stopSelectedTorrents(hash){
+                $.ajax({
+                    url: "torrent/stopTorrent",
+                    data: {hash: hash},
+                    success: function(data){
+                        console.log(data);
+                    }
+                });
+            }
+
+            function dropSelectedTorrent(hash){
+                if (confirm("Confirm dropping torrent? The downloaded files will be intact.")){
+                    $.ajax({
+                        url: "torrent/dropTorrent",
+                        data: {hash: hash},
+                        success: function(data){
+                            console.log(data);
+                        }
+                    });
+                }
+            }
 
             function bytesToSize(bytes) {
                 var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -204,13 +257,29 @@
                                 totalSize += file.Length;
                             })
 
+                            //Estimate the progress of the download
+                            var progress = download.Progress.toFixed(1) + "%";
 
-                            $("#ongoingTaskList").append(`<tr class="downloadTask" hash="${download.Hash}">
-                                <td><i class="clock icon"></i></td>
+                            var icon = "blue download";
+                            var colorClass = "";
+                            if (download.Progress == 100){
+                                icon = "green checkmark";
+                                colorClass = "completed"
+                            }
+
+                            $("#ongoingTaskList").append(`<tr class="downloadTask ${colorClass}" hash="${download.Hash}">
+                                <td><i class="${icon} icon"></i></td>
                                 <td>${download.Name}</td>
                                 <td>${bytesToSize(totalSize)}</td>
-                                <td>${""}</td>
+                                <td>${progress}</td>
                                 <td>${download.Info.Files.length}</td>
+                                <td>
+                                    <div class="ui icon mini buttons">
+                                        <button  hash="${download.Hash}" class="ui basic button" onclick="startThis(this);"><i class="green play icon"></i></button>
+                                        <button  hash="${download.Hash}" class="ui basic button" onclick="stopThis(this);"><i class="orange pause icon"></i></button>
+                                        <button  hash="${download.Hash}" class="ui basic button"><i class="blue info icon"></i></button>
+                                        <button  hash="${download.Hash}" class="ui red button" onclick="dropThis(this);"><i class="trash icon"></i></button>
+                                    </div></td>
                             </tr>`);
                         });
 

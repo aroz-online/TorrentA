@@ -4,17 +4,20 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
 type TorrentInfo struct {
-	Name    string
-	Stats   torrent.TorrentStats
-	Seeding bool
-	Info    *metainfo.Info
-	Hash    metainfo.Hash
+	Name     string
+	Stats    torrent.TorrentStats
+	Seeding  bool
+	Info     *metainfo.Info
+	Spec     *torrent.TorrentSpec
+	Progress float64
+	Hash     metainfo.Hash
 }
 
 func init() {
@@ -23,16 +26,18 @@ func init() {
 	http.HandleFunc("/torrent/addMagnet", handleMagnetAdd)
 	http.HandleFunc("/torrent/startTorrent", startTorrentDownload)
 	http.HandleFunc("/torrent/stopTorrent", stopTorrentDownload)
+	http.HandleFunc("/torrent/dropTorrent", dropTorrent)
 }
 
 func NewTorrentClient() (*torrent.Client, error) {
-
+	os.MkdirAll("./tmp", 0755)
 	//Generate a Config for this client
 	config := torrent.NewDefaultClientConfig()
 	//Modify a few identifers
 	config.HTTPUserAgent = "ArozOS TorrentA/1.0"
 	config.ExtendedHandshakeClientVersion = "arozos.torrenta dev 20210218"
 	config.UpnpID = "arozos/torrent"
+	config.DataDir = "./download/"
 
 	//Genrete new client and return it
 	return torrent.NewClient(config)
@@ -60,8 +65,9 @@ func startTorrentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Start download
-	targetTorrent.DownloadAll()
+	//Start download and upload
+	targetTorrent.AllowDataDownload()
+	targetTorrent.AllowDataUpload()
 
 	sendOK(w)
 }
@@ -88,8 +94,38 @@ func stopTorrentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Stop the download
+	//Stop the download and upload
 	targetTorrent.DisallowDataDownload()
+	targetTorrent.DisallowDataUpload()
+
+	sendOK(w)
+
+}
+
+//Drop (or delete) the torrent but keeping the file
+func dropTorrent(w http.ResponseWriter, r *http.Request) {
+	hash, err := mv(r, "hash", true)
+	if err != nil {
+		sendErrorResponse(w, "Hash not defined")
+		return
+	}
+
+	//Get the torrent client from request
+	tc, err := getTorrentClientByRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Get torrent by hash
+	targetTorrent, ok := tc.Torrent(metainfo.NewHashFromHex(hash))
+	if !ok {
+		sendErrorResponse(w, "Torrent with hash not found")
+		return
+	}
+
+	//Drop the torrent
+	targetTorrent.Drop()
 
 	sendOK(w)
 
@@ -130,7 +166,12 @@ func handleTorrentAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(torrent)
+	//Wait until the torrent is loaded
+	torrent.GotInfo()
+
+	//Start task by default
+	torrent.DownloadAll()
+	log.Println("Torrent added: ", torrent.Name())
 
 	sendOK(w)
 }
@@ -148,6 +189,11 @@ func handleListDownloadTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if torrentClient == nil {
+		sendErrorResponse(w, "No torrent client found for this user")
+		return
+	}
+
 	//List all the running downloads
 	allTorrents := torrentClient.Torrents()
 	torrentInfos := []TorrentInfo{}
@@ -155,12 +201,19 @@ func handleListDownloadTasks(w http.ResponseWriter, r *http.Request) {
 	for _, thisTorrent := range allTorrents {
 		//Check if the torrent is ready or not by take its info field
 		torrentInfo := thisTorrent.Info()
+		metainfo := thisTorrent.Metainfo()
+		torrentSpec := torrent.TorrentSpecFromMetaInfo(&metainfo)
+		downloadedPiecesCounts := thisTorrent.Stats().PiecesDirtiedGood
+		downloadCount := downloadedPiecesCounts.Int64()
+
 		torrentInfos = append(torrentInfos, TorrentInfo{
-			Name:    thisTorrent.Name(),
-			Stats:   thisTorrent.Stats(),
-			Seeding: thisTorrent.Seeding(),
-			Info:    torrentInfo,
-			Hash:    thisTorrent.InfoHash(),
+			Name:     thisTorrent.Name(),
+			Stats:    thisTorrent.Stats(),
+			Seeding:  thisTorrent.Seeding(),
+			Info:     torrentInfo,
+			Spec:     torrentSpec,
+			Progress: float64(downloadCount) / float64(thisTorrent.NumPieces()) * 100.0,
+			Hash:     thisTorrent.InfoHash(),
 		})
 
 	}
