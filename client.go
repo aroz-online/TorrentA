@@ -1,14 +1,5 @@
 package main
 
-import (
-	"errors"
-	"log"
-	"net/http"
-	"sync"
-
-	"github.com/anacrolix/torrent"
-)
-
 /*
 	Client isolation layer
 
@@ -17,59 +8,83 @@ import (
 
 */
 
-var torrentClientLists sync.Map //Use to store username -> torrent client
+import (
+	"errors"
+	"log"
+	"net/http"
+	"os"
 
-func initUserTorrentClientIfNotExists(w http.ResponseWriter, r *http.Request) {
+	"github.com/cenkalti/rain/torrent"
+	"github.com/jinzhu/copier"
+)
+
+var SessionList map[string]*torrent.Session
+
+func GetUserByUsername(username string) *torrent.Session {
+	thisUser := SessionList[username]
+	return thisUser
+}
+
+func initSessionForUser(w http.ResponseWriter, r *http.Request) error {
 	username := getUsername(w, r)
-	if username == "" {
-		sendErrorResponse(w, "Username undefined")
-		return
+
+	userDesktopAbs, err := resolveVirtalPath(w, r, "user:/Download")
+	if err != nil {
+		return err
 	}
-	_, ok := torrentClientLists.Load(username)
+
+	if !fileExists(userDesktopAbs) {
+		os.MkdirAll(userDesktopAbs, 0755)
+	}
+
+	//Generate a default config for this user
+	userDefaultConfig := newCustomConfig(userDesktopAbs)
+
+	//Create a session for this user
+	sess, err := torrent.NewSession(userDefaultConfig)
+	if err != nil {
+		return err
+	}
+
+	SessionList[username] = sess
+
+	return nil
+}
+
+func getUserSessionByRequest(w http.ResponseWriter, r *http.Request) (*torrent.Session, error) {
+	username := getUsername(w, r)
+	val, ok := SessionList[username]
 	if !ok {
-		//Create a new client for this user
-		ntc, err := NewTorrentClient()
-		if err != nil {
-			sendErrorResponse(w, err.Error())
+		initSessionForUser(w, r)
+		nval, nok := SessionList[username]
+		if !nok {
+			return nil, errors.New("Failed to create new session for user")
 		}
-
-		torrentClientLists.Store(username, ntc)
-	} else {
-		//Already exists. OK
+		return nval, nil
 	}
 
-	//send ok as ready
-	sendOK(w)
+	return val, nil
 }
 
-func getTorrentClientByUsername(username string) (*torrent.Client, error) {
-	val, ok := torrentClientLists.Load(username)
-	if !ok {
-		return nil, errors.New("No torrent client found for this user")
+func newCustomConfig(downloadDir string) torrent.Config {
+	thisConfig := torrent.Config{}
+	copier.Copy(&thisConfig, &torrent.DefaultConfig)
+	thisConfig.Database = "./torrent.db"
+	thisConfig.DataDir = downloadDir
+	thisConfig.DataDirIncludesTorrentID = false
+	thisConfig.PrivatePeerIDPrefix = "-ArozOS-"
+	thisConfig.PrivateExtensionHandshakeClientVersion = "TorrentA 1.110"
+
+	return thisConfig
+}
+
+func closeAllSessions() {
+	for k, v := range SessionList {
+		log.Println("*TorrentA* Closing Client for " + k)
+		v.Close()
 	}
-
-	return val.(*torrent.Client), nil
-}
-
-func getTorrentClientByRequest(w http.ResponseWriter, r *http.Request) (*torrent.Client, error) {
-	username := getUsername(w, r)
-	return getTorrentClientByUsername(username)
-}
-
-func shutdownAllTorrentClients() {
-	log.Println("Shutting down TorrentA torrent clients")
-	torrentClientLists.Range(func(key, value interface{}) bool {
-		//Shutdown the handler
-		log.Println("Shutting down torrent client for " + key.(string))
-		value.(*torrent.Client).Close()
-		return true
-	})
 }
 
 func init() {
-	//Register the endpoints related to client isolation functions
-	torrentClientLists = sync.Map{}
-
-	//Each user request this endpoint once when enter the homepage
-	http.HandleFunc("/init", initUserTorrentClientIfNotExists)
+	SessionList = map[string]*torrent.Session{}
 }

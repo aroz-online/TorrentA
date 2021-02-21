@@ -8,12 +8,10 @@ import (
 	"syscall"
 
 	"arozos.com/TorrentA/mod/aroz"
-	"github.com/anacrolix/torrent"
 )
 
 var (
-	handler       *aroz.ArozHandler
-	torrentClient *torrent.Client
+	handler *aroz.ArozHandler
 )
 
 /*
@@ -29,10 +27,7 @@ func SetupCloseHandler() {
 		<-c
 		log.Println("\r- Shutting down TorrentA module.")
 		//Do other things like close database or opened files
-
-		//Shutdown alld torrent clients
-		shutdownAllTorrentClients()
-
+		closeAllSessions()
 		os.Exit(0)
 	}()
 }
