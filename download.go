@@ -66,7 +66,26 @@ func handleTorrentAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleMagnetAdd(w http.ResponseWriter, r *http.Request) {
+	//Resolve the torrent file path
+	magnet, err := mv(r, "magnet", true)
+	if err != nil {
+		sendErrorResponse(w, "Invalid file path")
+		return
+	}
 
+	//Create a session for this user if not exists
+	sess, err := getUserSessionByRequest(w, r)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	_, err = sess.AddURI(magnet, nil)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+	sendOK(w)
 }
 
 //Start downloading a torrent file givne it hash
