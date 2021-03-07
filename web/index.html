@@ -75,13 +75,13 @@
         <div class="ui stackable grid">
             <div class="three wide column">
                 <div class="ui vertical left attached basic fluid buttons">
-                    <button class="ui button" onclick="filterRunningTasks('all');"><i class="file icon"></i> All Torrents</button>
-                    <button class="ui button" onclick="filterRunningTasks('downloading');"><i class="download icon"></i> Downloading</button>
-                    <button class="ui button" onclick="filterRunningTasks('paused');"><i class="upload icon"></i> Paused</button>
-                    <button class="ui button" onclick="filterRunningTasks('completed');"><i class="checkmark icon"></i> Completed</button>
+                    <button class="ui active button torrentStatus" onclick="filterRunningTasks('all', this);"><i class="file icon"></i> All Torrents</button>
+                    <button class="ui button torrentStatus" onclick="filterRunningTasks('downloading', this);"><i class="download icon"></i> Downloading</button>
+                    <button class="ui button torrentStatus" onclick="filterRunningTasks('paused', this);"><i class="upload icon"></i> Paused</button>
+                    <button class="ui button torrentStatus" onclick="filterRunningTasks('completed', this);"><i class="checkmark icon"></i> Completed</button>
                 </div>
                 <div class="ui container" style="padding: 12px;">
-                    Powered by <a href="https://github.com/aroz-online/TorrentA" target="_blank">TorrentA</a> and <a href="https://github.com/anacrolix/torrent" target="_blank">torrent</a>
+                    Powered by <a href="https://github.com/aroz-online/TorrentA" target="_blank">TorrentA</a> and <a href="https://github.com/cenkalti/rain" target="_blank">rain</a>
                 </div>
                 
             </div>
@@ -283,6 +283,13 @@
                    //Use torrent file
                    addTorrentFile(torrentFile);
                }
+
+               clearAddLinks();
+           }
+
+           function clearAddLinks(){
+               $("#targetTorrentFile").val("");
+               $("#magnetLink").val("");
            }
 
            function addMagnetLink(magnet, overwrite=false){
@@ -311,6 +318,8 @@
                            if (confirm("Torrent already exists. Overwrite?")){
                                 addTorrentFile(torrentFilepath, true);
                            }
+                       }else{
+                           alert(data.error);
                        }
                     }else{
                         //OK! Reload the list
@@ -414,7 +423,9 @@
 
                             //Estimate the progress of the download
                             var progress = (download.Stats.Pieces.Have / download.Stats.Pieces.Total * 100).toFixed(2);
-                           
+                            if (isNaN(progress)){
+                                progress = "N/A";
+                            }
 
                             var icon = "blue download";
                             var statusClass = "downloading";
@@ -432,10 +443,14 @@
                             
 
                             var taskID = download.ID;
-
+                            var dispalyName = download.Stats.Name;
+                            if (dispalyName.trim() == ""){
+                                //No information yet (magenet), use ID instead
+                                dispalyName = download.ID;
+                            }
                             $("#ongoingTaskList").append(`<tr class="downloadTask ${statusClass}" hash="${download.Hash}">
                                 <td><i class="${icon} icon"></i></td>
-                                <td>${download.Stats.Name}</td>
+                                <td>${dispalyName}</td>
                                 <td>${bytesToSize(totalSize)}</td>
                                 <td>${progress}%</td>
                                 <td>${bytesToSize(download.Stats.Speed.Download)}/s</td>
@@ -473,7 +488,7 @@
                 }
             }
 
-            function filterRunningTasks(type){
+            function filterRunningTasks(type, button = undefined){
                 currentFilter = type;
                 switch (type){
                     case "all":
@@ -492,6 +507,13 @@
                         $(".downloadTask.completed").show();
                         break;
                 }
+
+                if (button != undefined){
+                    $(".torrentStatus.button.active").removeClass("active");
+                    $(button).addClass('active');
+                }
+                
+
             }
 
             function toggleSettingInterface(){

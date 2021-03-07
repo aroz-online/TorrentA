@@ -60,7 +60,15 @@ func handleTorrentAdd(w http.ResponseWriter, r *http.Request) {
 		sendErrorResponse(w, err.Error())
 		return
 	}
-	sess.AddTorrent(torrentFileIOReader, nil)
+
+	thisTorrent, err := sess.AddTorrent(torrentFileIOReader, nil)
+	if err != nil {
+		sendErrorResponse(w, err.Error())
+		return
+	}
+
+	//Announce this torrent
+	thisTorrent.Announce()
 
 	sendOK(w)
 }
@@ -80,11 +88,15 @@ func handleMagnetAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = sess.AddURI(magnet, nil)
+	thisTorrent, err := sess.AddURI(magnet, nil)
 	if err != nil {
 		sendErrorResponse(w, err.Error())
 		return
 	}
+
+	//Announce this torrent
+	thisTorrent.Announce()
+
 	sendOK(w)
 }
 
