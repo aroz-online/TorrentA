@@ -6,7 +6,12 @@ The torrent downloader subservice for ArozOS
 ** THIS IS NOT A WEBAPP. DO NOT INSTALL VIA MODULE INSTALLER**
 
 ### Installation
+#### Requirements
+- Go 1.14 or above
+- Linux (Debian Buster or above) or Windows (7 or above), not tested on MacOS and FreeBSD
 
+
+#### Build Instruction
 git clone this repo in the subservice folder and run build.sh. The following examples assume your arozos root folder is located at ```~/arozos```
 
 ```
